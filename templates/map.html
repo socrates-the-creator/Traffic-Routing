@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mumbai Navigation System</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        #map { height: 100vh; width: 100%; z-index: 10; }
+        .leaflet-control-container .leaflet-routing-container {
+            display: none;
+        }
+        .route-history-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .route-history-details.open {
+             max-height: 500px; /* Adjust as needed */
+        }
+    </style>
+</head>
+<body class="relative">
+    <div id="map"></div>
+    <div id="controls" class="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg w-96 z-20 space-y-4">
+        <h1 class="text-2xl font-bold text-gray-800">Navigation Controls</h1>
+
+        <!-- Start/End Points -->
+        <div>
+            <label for="start_lat" class="block text-sm font-medium text-gray-700">Start Point</label>
+            <div class="flex space-x-2 mt-1">
+                <input type="number" id="start_lat" placeholder="Latitude" class="w-1/2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                <input type="number" id="start_lon" placeholder="Longitude" class="w-1/2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+        </div>
+        <div>
+            <label for="end_lat" class="block text-sm font-medium text-gray-700">End Point</label>
+            <div class="flex space-x-2 mt-1">
+                <input type="number" id="end_lat" placeholder="Latitude" class="w-1/2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                <input type="number" id="end_lon" placeholder="Longitude" class="w-1/2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+             <p class="text-xs text-gray-500 mt-1">Click on the map to set points, or enter coordinates manually.</p>
+        </div>
+
+        <!-- Algorithm Selection -->
+        <div>
+            <label for="algorithm" class="block text-sm font-medium text-gray-700">Routing Algorithm</label>
+            <select id="algorithm" class="mt-1 block w-full p-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <option value="astar">A* Search</option>
+                <option value="dijkstra">Dijkstra</option>
+                <option value="gnn">GNN (if available)</option>
+            </select>
+        </div>
+
+        <!-- Find Route Button -->
+        <button id="findRouteBtn" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-300 disabled:bg-gray-400">
+            Find Route
+        </button>
+        <div id="loading" class="hidden text-center">
+            <p>Calculating route...</p>
+        </div>
+        <div id="route-info" class="text-sm text-gray-600"></div>
+    </div>
+
+    <!-- Route History -->
+    <div id="route-history" class="absolute bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg w-96 z-20">
+        <div id="route-history-header" class="flex justify-between items-center cursor-pointer">
+            <h2 class="text-lg font-bold text-gray-800">Recent Routes</h2>
+            <svg id="history-arrow" class="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
+        <div id="route-history-details" class="route-history-details mt-2 space-y-2">
+            <!-- History items will be injected here -->
+            <p class="text-gray-500">No recent routes.</p>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Map Initialization
+            const map = L.map('map').setView([19.0760, 72.8777], 12); // Centered on Mumbai
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // State variables
+            let startMarker = null;
+            let endMarker = null;
+            let routeLayer = null;
+            let nextClickIsStart = true; // true for start, false for end
+
+            // DOM Elements
+            const startLatInput = document.getElementById('start_lat');
+            const startLonInput = document.getElementById('start_lon');
+            const endLatInput = document.getElementById('end_lat');
+            const endLonInput = document.getElementById('end_lon');
+            const findRouteBtn = document.getElementById('findRouteBtn');
+            const algorithmSelect = document.getElementById('algorithm');
+            const loadingDiv = document.getElementById('loading');
+            const routeInfoDiv = document.getElementById('route-info');
+            const historyContainer = document.getElementById('route-history-details');
+            const historyHeader = document.getElementById('route-history-header');
+            const historyArrow = document.getElementById('history-arrow');
+            
+            // --- Marker and Input Handling ---
+
+            function updateMarker(lat, lon, isStart) {
+                const icon = L.icon({
+                    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${isStart ? 'green' : 'red'}.png`,
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+
+                if (isStart) {
+                    if (startMarker) map.removeLayer(startMarker);
+                    startMarker = L.marker([lat, lon], { icon, draggable: true }).addTo(map);
+                    startLatInput.value = lat.toFixed(6);
+                    startLonInput.value = lon.toFixed(6);
+                    startMarker.on('dragend', (e) => updateInputsFromMarker(e.target.getLatLng(), true));
+                } else {
+                    if (endMarker) map.removeLayer(endMarker);
+                    endMarker = L.marker([lat, lon], { icon, draggable: true }).addTo(map);
+                    endLatInput.value = lat.toFixed(6);
+                    endLonInput.value = lon.toFixed(6);
+                    endMarker.on('dragend', (e) => updateInputsFromMarker(e.target.getLatLng(), false));
+                }
+                updateRouteButtonState();
+            }
+
+            function updateInputsFromMarker(latlng, isStart) {
+                if (isStart) {
+                    startLatInput.value = latlng.lat.toFixed(6);
+                    startLonInput.value = latlng.lng.toFixed(6);
+                } else {
+                    endLatInput.value = latlng.lat.toFixed(6);
+                    endLonInput.value = latlng.lng.toFixed(6);
+                }
+                 findRoute(); // Recalculate route on drag
+            }
+            
+            function updateMarkersFromInputs() {
+                const startLat = parseFloat(startLatInput.value);
+                const startLon = parseFloat(startLonInput.value);
+                if (!isNaN(startLat) && !isNaN(startLon)) {
+                     updateMarker(startLat, startLon, true);
+                }
+
+                const endLat = parseFloat(endLatInput.value);
+                const endLon = parseFloat(endLonInput.value);
+                if (!isNaN(endLat) && !isNaN(endLon)) {
+                     updateMarker(endLat, endLon, false);
+                }
+            }
+
+            map.on('click', function(e) {
+                updateMarker(e.latlng.lat, e.latlng.lng, nextClickIsStart);
+                nextClickIsStart = !nextClickIsStart; // Cycle between start and end
+            });
+            
+            [startLatInput, startLonInput, endLatInput, endLonInput].forEach(input => {
+                input.addEventListener('change', updateMarkersFromInputs);
+            });
+
+
+            function updateRouteButtonState() {
+                findRouteBtn.disabled = !(startMarker && endMarker);
+            }
+
+            // --- API Calls and Route Drawing ---
+
+            async function findRoute() {
+                if (!startMarker || !endMarker) return;
+
+                loadingDiv.classList.remove('hidden');
+                routeInfoDiv.innerHTML = '';
+                if (routeLayer) map.removeLayer(routeLayer);
+
+                const payload = {
+                    start_lat: parseFloat(startLatInput.value),
+                    start_lon: parseFloat(startLonInput.value),
+                    end_lat: parseFloat(endLatInput.value),
+                    end_lon: parseFloat(endLonInput.value),
+                    algorithm: algorithmSelect.value,
+                    cost_function: 'time'
+                };
+
+                try {
+                    const response = await fetch('/api/route', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to fetch route');
+                    }
+
+                    const data = await response.json();
+                    drawRoute(data.route, data.metrics);
+                    fetchRouteHistory(); // Refresh history after finding a new route
+
+                } catch (error) {
+                    console.error('Error finding route:', error);
+                    routeInfoDiv.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+                } finally {
+                    loadingDiv.classList.add('hidden');
+                }
+            }
+
+            function drawRoute(routeGeoJSON, metrics) {
+                routeLayer = L.geoJSON(routeGeoJSON, {
+                    style: {
+                        color: '#3B82F6', // A nice blue
+                        weight: 5,
+                        opacity: 0.8
+                    }
+                }).addTo(map);
+                map.fitBounds(routeLayer.getBounds().pad(0.1));
+
+                const distance = (metrics.distance / 1000).toFixed(2);
+                const time = (metrics.time / 60).toFixed(2);
+                routeInfoDiv.innerHTML = `
+                    <p><b>Algorithm:</b> ${metrics.algorithm.toUpperCase()}</p>
+                    <p><b>Distance:</b> ${distance} km</p>
+                    <p><b>Time:</b> ${time} minutes</p>
+                `;
+            }
+
+            findRouteBtn.addEventListener('click', findRoute);
+
+            // --- Route History ---
+            
+            historyHeader.addEventListener('click', () => {
+                const details = document.getElementById('route-history-details');
+                details.classList.toggle('open');
+                historyArrow.classList.toggle('rotate-180');
+            });
+
+            async function fetchRouteHistory() {
+                 try {
+                    const response = await fetch('/api/route_history');
+                    if (!response.ok) throw new Error('Failed to fetch history');
+                    
+                    const history = await response.json();
+                    renderHistory(history);
+
+                } catch (error) {
+                    console.error('Error fetching route history:', error);
+                    historyContainer.innerHTML = `<p class="text-red-500">Could not load history.</p>`;
+                }
+            }
+
+            function renderHistory(history) {
+                if (!history || history.length === 0) {
+                     historyContainer.innerHTML = `<p class="text-gray-500">No recent routes.</p>`;
+                     return;
+                }
+
+                historyContainer.innerHTML = history.map((item, index) => `
+                    <div class="p-2 border rounded-md hover:bg-gray-50">
+                        <p class="font-semibold">Route ${index + 1} (${item.algorithm.toUpperCase()})</p>
+                        <p class="text-xs text-gray-600">
+                            From: ${item.start_lat.toFixed(4)}, ${item.start_lon.toFixed(4)}
+                        </p>
+                         <p class="text-xs text-gray-600">
+                           To: ${item.end_lat.toFixed(4)}, ${item.end_lon.toFixed(4)}
+                        </p>
+                    </div>
+                `).join('');
+            }
+            
+            // Initial setup
+            updateRouteButtonState();
+            fetchRouteHistory();
+        });
+    </script>
+</body>
+</html>
+
+
+
