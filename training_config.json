@@ -1,0 +1,33 @@
+{
+  "data": {
+    "historical_days": 30,
+    "test_split": 0.2,
+    "validation_split": 0.2,
+    "random_state": 42,
+    "min_data_points": 1000
+  },
+  "model": {
+    "hidden_dims": [64, 32, 16],
+    "output_dim": 1,
+    "dropout_rate": 0.2,
+    "learning_rate": 0.001,
+    "activation": "relu"
+  },
+  "training": {
+    "epochs": 100,
+    "batch_size": 32,
+    "early_stopping_patience": 15,
+    "reduce_lr_patience": 8,
+    "min_delta": 0.001
+  },
+  "evaluation": {
+    "metrics": ["mse", "mae", "mape", "r2"],
+    "cross_validation_folds": 5
+  },
+  "output": {
+    "save_model": true,
+    "save_predictions": true,
+    "save_plots": true,
+    "model_name": "traffic_gnn_model"
+  }
+}

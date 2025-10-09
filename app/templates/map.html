@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mumbai Navigation System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: white !important;
+        }
+        
+        .main-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 20px;
+            min-width: 300px;
+            z-index: 1000;
+        }
+        
+        .control-panel h5 {
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+            color: #212529;
+        }
+        
+        .algorithm-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .algorithm-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #e9ecef;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .algorithm-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .algorithm-btn:hover {
+            border-color: #667eea;
+        }
+        
+        .route-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .route-info h6 {
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .metric-label {
+            color: #666;
+        }
+        
+        .metric-value {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .traffic-legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 15px;
+            z-index: 1000;
+        }
+        
+        .traffic-legend h6 {
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner-border {
+            color: #667eea;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .comparison-results {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .comparison-item {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .comparison-item.best {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .comparison-algorithm {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .comparison-metrics {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-map-marked-alt me-2"></i>
+                Mumbai Navigation System
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text">
+                    <i class="fas fa-clock me-1"></i>
+                    <span id="current-time"></span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Map Container -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <h5><i class="fas fa-route me-2"></i>Route Planning</h5>
+                
+                <!-- Algorithm Selector -->
+                <div class="algorithm-selector">
+                    <div class="algorithm-btn active" data-algorithm="astar">A*</div>
+                    <div class="algorithm-btn" data-algorithm="dijkstra">Dijkstra</div>
+                    <div class="algorithm-btn" data-algorithm="gnn">GNN</div>
+                </div>
+                
+                <!-- Route Input -->
+                <div class="form-group">
+                    <label class="form-label">Start Point</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="start-lat" placeholder="Latitude" step="0.000001">
+                        <input type="number" class="form-control" id="start-lon" placeholder="Longitude" step="0.000001">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">End Point</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="end-lat" placeholder="Latitude" step="0.000001">
+                        <input type="number" class="form-control" id="end-lon" placeholder="Longitude" step="0.000001">
+                    </div>
+                </div>
+                
+                <!-- Cost Function -->
+                <div class="form-group">
+                    <label class="form-label">Cost Function</label>
+                    <select class="form-select" id="cost-function">
+                        <option value="time">Time</option>
+                        <option value="distance">Distance</option>
+                        <option value="combined">Combined</option>
+                    </select>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" id="find-route">
+                        <i class="fas fa-search me-2"></i>Find Route
+                    </button>
+                    <button class="btn btn-success" id="compare-routes">
+                        <i class="fas fa-balance-scale me-2"></i>Compare Routes
+                    </button>
+                    <button class="btn btn-warning" id="update-traffic">
+                        <i class="fas fa-sync me-2"></i>Update Traffic
+                    </button>
+                    <button class="btn btn-secondary" id="predict-traffic">
+                        <i class="fas fa-crystal-ball me-2"></i>Predict Traffic
+                    </button>
+                </div>
+                
+                <!-- Loading Indicator -->
+                <div class="loading" id="loading">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Processing...</p>
+                </div>
+                
+                <!-- Messages -->
+                <div class="error-message" id="error-message"></div>
+                <div class="success-message" id="success-message"></div>
+                
+                <!-- Route Information -->
+                <div class="route-info" id="route-info" style="display: none;">
+                    <h6><i class="fas fa-info-circle me-2"></i>Route Information</h6>
+                    <div class="metric">
+                        <span class="metric-label">Distance:</span>
+                        <span class="metric-value" id="route-distance">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Time:</span>
+                        <span class="metric-value" id="route-time">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Algorithm:</span>
+                        <span class="metric-value" id="route-algorithm">-</span>
+                    </div>
+                </div>
+                
+                <!-- Comparison Results -->
+                <div class="comparison-results" id="comparison-results" style="display: none;">
+                    <h6><i class="fas fa-chart-bar me-2"></i>Comparison Results</h6>
+                    <div id="comparison-items"></div>
+                </div>
+            </div>
+            
+            <!-- Traffic Legend -->
+            <div class="traffic-legend">
+                <h6><i class="fas fa-traffic-light me-2"></i>Traffic Conditions</h6>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #28a745;"></div>
+                    <span>Flowing</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffc107;"></div>
+                    <span>Slow</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #dc3545;"></div>
+                    <span>Congested</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+    
+    <script>
+        // Global variables
+        let map;
+        let currentRouteLayer;
+        let trafficLayer;
+        let predictionLayer;
+        let startMarker;
+        let endMarker;
+        let selectedAlgorithm = 'astar';
+        
+        // Mumbai coordinates
+        const MUMBAI_CENTER = [19.0760, 72.8777];
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView(MUMBAI_CENTER, 12);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add click event for setting start/end points
+            map.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lon = e.latlng.lng;
+                
+                // Set coordinates in form
+                if (!startMarker) {
+                    document.getElementById('start-lat').value = lat.toFixed(6);
+                    document.getElementById('start-lon').value = lon.toFixed(6);
+                    setStartPoint(lat, lon);
+                } else if (!endMarker) {
+                    document.getElementById('end-lat').value = lat.toFixed(6);
+                    document.getElementById('end-lon').value = lon.toFixed(6);
+                    setEndPoint(lat, lon);
+                }
+            });
+            
+            // Load initial traffic data
+            loadTrafficData();
+        }
+        
+        // Set start point
+        function setStartPoint(lat, lon) {
+            if (startMarker) {
+                map.removeLayer(startMarker);
+            }
+            
+            startMarker = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: 'start-marker',
+                    html: '<div style="background-color: #28a745; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [20, 20]
+                })
+            }).addTo(map);
+        }
+        
+        // Set end point
+        function setEndPoint(lat, lon) {
+            if (endMarker) {
+                map.removeLayer(endMarker);
+            }
+            
+            endMarker = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: 'end-marker',
+                    html: '<div style="background-color: #dc3545; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [20, 20]
+                })
+            }).addTo(map);
+        }
+        
+        // Algorithm selection
+        document.querySelectorAll('.algorithm-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.algorithm-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                selectedAlgorithm = this.dataset.algorithm;
+            });
+        });
+        
+        // Find route
+        document.getElementById('find-route').addEventListener('click', function() {
+            const startLat = parseFloat(document.getElementById('start-lat').value);
+            const startLon = parseFloat(document.getElementById('start-lon').value);
+            const endLat = parseFloat(document.getElementById('end-lat').value);
+            const endLon = parseFloat(document.getElementById('end-lon').value);
+            const costFunction = document.getElementById('cost-function').value;
+            
+            if (!startLat || !startLon || !endLat || !endLon) {
+                showError('Please enter both start and end coordinates');
+                return;
+            }
+            
+            showLoading();
+            
+            fetch('/api/route', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    start_lat: startLat,
+                    start_lon: startLon,
+                    end_lat: endLat,
+                    end_lon: endLon,
+                    algorithm: selectedAlgorithm,
+                    cost_function: costFunction
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    displayRoute(data.route, data.metrics);
+                    showSuccess('Route found successfully!');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('Error finding route: ' + error.message);
+            });
+        });
+        
+        // Compare routes
+        document.getElementById('compare-routes').addEventListener('click', function() {
+            const startLat = parseFloat(document.getElementById('start-lat').value);
+            const startLon = parseFloat(document.getElementById('start-lon').value);
+            const endLat = parseFloat(document.getElementById('end-lat').value);
+            const endLon = parseFloat(document.getElementById('end-lon').value);
+            const costFunction = document.getElementById('cost-function').value;
+            
+            if (!startLat || !startLon || !endLat || !endLon) {
+                showError('Please enter both start and end coordinates');
+                return;
+            }
+            
+            showLoading();
+            
+            fetch('/api/compare_routes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    start_lat: startLat,
+                    start_lon: startLon,
+                    end_lat: endLat,
+                    end_lon: endLon,
+                    cost_function: costFunction
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    displayComparisonResults(data.results, data.best_route);
+                    showSuccess('Route comparison completed!');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('Error comparing routes: ' + error.message);
+            });
+        });
+        
+        // Update traffic
+        document.getElementById('update-traffic').addEventListener('click', function() {
+            showLoading();
+            
+            fetch('/api/update_traffic', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    loadTrafficData();
+                    showSuccess('Traffic data updated successfully!');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('Error updating traffic: ' + error.message);
+            });
+        });
+        
+        // Predict traffic
+        document.getElementById('predict-traffic').addEventListener('click', function() {
+            showLoading();
+            
+            fetch('/api/predict_traffic', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    displayTrafficPredictions(data);
+                    showSuccess('Traffic predictions generated!');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('Error predicting traffic: ' + error.message);
+            });
+        });
+        
+        // Load traffic data
+        function loadTrafficData() {
+            fetch('/api/traffic_data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error loading traffic data:', data.error);
+                } else {
+                    displayTrafficData(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading traffic data:', error);
+            });
+        }
+        
+        // Display traffic data
+        function displayTrafficData(trafficData) {
+            if (trafficLayer) {
+                map.removeLayer(trafficLayer);
+            }
+            
+            trafficLayer = L.layerGroup();
+            
+            trafficData.features.forEach(feature => {
+                const coords = feature.geometry.coordinates;
+                const props = feature.properties;
+                
+                let color = '#28a745'; // Green for flowing
+                if (props.traffic_level === 'SLOW') {
+                    color = '#ffc107'; // Yellow for slow
+                } else if (props.traffic_level === 'CONGESTED') {
+                    color = '#dc3545'; // Red for congested
+                }
+                
+                const marker = L.circleMarker([coords[1], coords[0]], {
+                    radius: 5,
+                    fillColor: color,
+                    color: 'white',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+                
+                marker.bindPopup(`
+                    <strong>Traffic Information</strong><br>
+                    Speed: ${props.current_speed.toFixed(1)} km/h<br>
+                    Level: ${props.traffic_level}<br>
+                    Jam Factor: ${(props.jam_factor * 100).toFixed(1)}%<br>
+                    Confidence: ${(props.confidence * 100).toFixed(1)}%
+                `);
+                
+                trafficLayer.addLayer(marker);
+            });
+            
+            trafficLayer.addTo(map);
+        }
+        
+        // Display traffic predictions
+        function displayTrafficPredictions(predictionData) {
+            if (predictionLayer) {
+                map.removeLayer(predictionLayer);
+            }
+            
+            predictionLayer = L.layerGroup();
+            
+            predictionData.features.forEach(feature => {
+                const coords = feature.geometry.coordinates;
+                const props = feature.properties;
+                
+                const marker = L.circleMarker([coords[1], coords[0]], {
+                    radius: 4,
+                    fillColor: '#6f42c1',
+                    color: 'white',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                });
+                
+                marker.bindPopup(`
+                    <strong>GNN Prediction</strong><br>
+                    Predicted Speed: ${props.predicted_speed.toFixed(1)} km/h<br>
+                    Confidence: ${(props.prediction_confidence * 100).toFixed(1)}%
+                `);
+                
+                predictionLayer.addLayer(marker);
+            });
+            
+            predictionLayer.addTo(map);
+        }
+        
+        // Display route
+        function displayRoute(route, metrics) {
+            if (currentRouteLayer) {
+                map.removeLayer(currentRouteLayer);
+            }
+            
+            const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+            
+            currentRouteLayer = L.polyline(coordinates, {
+                color: '#667eea',
+                weight: 4,
+                opacity: 0.8
+            }).addTo(map);
+            
+            // Fit map to route
+            map.fitBounds(currentRouteLayer.getBounds(), {padding: [20, 20]});
+            
+            // Update route info
+            document.getElementById('route-distance').textContent = (metrics.distance / 1000).toFixed(2) + ' km';
+            document.getElementById('route-time').textContent = formatTime(metrics.time);
+            document.getElementById('route-algorithm').textContent = metrics.algorithm;
+            document.getElementById('route-info').style.display = 'block';
+        }
+        
+        // Display comparison results
+        function displayComparisonResults(results, bestRoute) {
+            const container = document.getElementById('comparison-items');
+            container.innerHTML = '';
+            
+            results.forEach((result, index) => {
+                const isBest = result.algorithm === bestRoute;
+                const item = document.createElement('div');
+                item.className = `comparison-item ${isBest ? 'best' : ''}`;
+                
+                item.innerHTML = `
+                    <div class="comparison-algorithm">
+                        ${result.algorithm} ${isBest ? '(Best)' : ''}
+                    </div>
+                    <div class="comparison-metrics">
+                        Distance: ${(result.metrics.distance / 1000).toFixed(2)} km | 
+                        Time: ${formatTime(result.metrics.time)} | 
+                        Cost: ${result.metrics.cost.toFixed(2)}
+                    </div>
+                `;
+                
+                container.appendChild(item);
+            });
+            
+            document.getElementById('comparison-results').style.display = 'block';
+        }
+        
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ${secs}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${secs}s`;
+            } else {
+                return `${secs}s`;
+            }
+        }
+        
+        function updateCurrentTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString();
+        }
+        
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            
+            // Set default coordinates (Mumbai landmarks)
+            document.getElementById('start-lat').value = '19.0760';
+            document.getElementById('start-lon').value = '72.8777';
+            document.getElementById('end-lat').value = '19.0176';
+            document.getElementById('end-lon').value = '72.8562';
+        });
+    </script>
+</body>
+</html>
