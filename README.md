@@ -315,12 +315,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [ ] Integration with other traffic APIs
 - [ ] Performance optimization for larger datasets
 
-## Contact
-
-For questions or support, please contact:
-- Email: [your-email@domain.com]
-- GitHub: [your-github-username]
-
 ---
 
 **Note**: This is a university project for educational purposes. For production use, additional security measures, error handling, and performance optimizations would be required.
